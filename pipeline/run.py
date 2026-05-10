@@ -1,7 +1,8 @@
 import os
 import yaml
 from core.geometry import get_catalonia_geometries, make_levels
-from core.export import export_geo
+from core.variables import build_data
+from core.export import export_geo, export_data
 
 def load_config():
     config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
@@ -18,9 +19,13 @@ def main():
     levels = make_levels(gdf, cfg)
     export_geo(levels, geo_dir)
 
-    print("\n✓ Done. Files written to:")
-    print(f"  {geo_dir}/")
-    print(f"  {data_dir}/  ← variables coming in Milestone 3")
+    print("\n── Variables ─────────────────────────")
+    data = build_data(levels, cfg)
+    export_data(data, data_dir)
+
+    print("\n✓ Done.")
+    print(f"  geo/  → {geo_dir}")
+    print(f"  data/ → {data_dir}")
 
 if __name__ == "__main__":
     main()

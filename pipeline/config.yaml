@@ -20,3 +20,83 @@ simplification:
 output:
   geo_dir: "../web/geo"
   data_dir: "../web/data"
+
+# ── Data sources ───────────────────────────────────────────────────────────
+# Each source is downloaded ONCE regardless of how many variables it contains.
+# To add a new variable from an existing source: add it under that source's variables.
+# To add a new source: add a new block here with its own variables list.
+
+sources:
+
+  ine_30824:
+    url: "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/30824.csv"
+    type: ine_atlas_renta
+    label: "INE — Atlas de Distribución de Renta de los Hogares"
+    variables:
+      - id: net_income_pc
+        indicator: "Renta neta media por persona"
+        label_es: Renta neta media por persona
+        label_ca: Renda neta mitjana per persona
+        label_en: Net income per capita
+        unit: "€"
+        decimals: 0
+        multiplier: 1000
+
+      - id: net_income_hh
+        indicator: "Renta neta media por hogar"
+        label_es: Renta neta media por hogar
+        label_ca: Renda neta mitjana per llar
+        label_en: Net income per household
+        unit: "€"
+        decimals: 0
+        multiplier: 1000
+
+      - id: mean_income_cu
+        indicator: "Media de la renta por unidad de consumo"
+        label_es: Media de la renta por unidad de consumo
+        label_ca: Mitjana de la renda per unitat de consum
+        label_en: Mean income per consumption unit
+        unit: "€"
+        decimals: 0
+        multiplier: 1000
+
+      - id: median_income_cu
+        indicator: "Mediana de la renta por unidad de consumo"
+        label_es: Mediana de la renta por unidad de consumo
+        label_ca: Mediana de la renda per unitat de consum
+        label_en: Median income per consumption unit
+        unit: "€"
+        decimals: 0
+        multiplier: 1000
+
+      - id: gross_income_pc
+        indicator: "Renta bruta media por persona"
+        label_es: Renta bruta media por persona
+        label_ca: Renda bruta mitjana per persona
+        label_en: Gross income per capita
+        unit: "€"
+        decimals: 0
+        multiplier: 1000
+
+      - id: gross_income_hh
+        indicator: "Renta bruta media por hogar"
+        label_es: Renta bruta media por hogar
+        label_ca: Renda bruta mitjana per llar
+        label_en: Gross income per household
+        unit: "€"
+        decimals: 0
+        multiplier: 1000
+        
+  # ── Future sources (examples of how to add them) ──────────────────────────
+  # ine_30825:
+  #   url: "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/30825.csv"
+  #   type: ine_atlas_renta
+  #   label: "INE — Gini and inequality indicators"
+  #   variables:
+  #     - id: gini_index
+  #       indicator: "Índice de Gini"
+  #       label_es: Índice de Gini
+  #       label_ca: Índex de Gini
+  #       label_en: Gini index
+  #       unit: ""
+  #       decimals: 3

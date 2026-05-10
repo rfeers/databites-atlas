@@ -22,3 +22,17 @@ def export_geo(levels: dict, output_dir: str) -> None:
         out.to_file(path, driver="GeoJSON")
         size_kb = os.path.getsize(path) / 1000
         print(f"  [exported] {level}.geojson — {len(out):,} features · {size_kb:.0f} KB")
+
+def export_data(data: dict, output_dir: str) -> None:
+    """
+    Export variable data as JSON lookup tables.
+    One file per geographic level.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    for level, lookup in data.items():
+        path = os.path.join(output_dir, f"{level}.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(lookup, f, ensure_ascii=False)
+        size_kb = os.path.getsize(path) / 1000
+        print(f"  [exported] {level}.json — {len(lookup):,} areas · {size_kb:.0f} KB")
