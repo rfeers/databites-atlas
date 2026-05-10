@@ -1,58 +1,91 @@
-// main.js — entry point
+// main.js - entry point, wires everything together
 
-const map = new maplibregl.Map({
-  container: 'map',
-  style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  center: [1.7, 41.7],
-  zoom: 7,
-  minZoom: 5,
-  maxZoom: 16,
-});
+import { LEVELS, VARIABLES, DEFAULT_VARIABLE } from './config.js';
+import { initMap, addLevel, recolorLevel, setActiveLevel } from './map.js';
 
-map.on('load', () => {
-  console.log('Map loaded ✓');
-  loadProvinces();
-});
+// app state
+let activeVar   = DEFAULT_VARIABLE;
+let activeLevel = 'provinces';
+let geoCache    = {};
+let dataCache   = {};
 
-async function loadProvinces() {
-  const geoRes  = await fetch('geo/provinces.geojson');
-  const geo     = await geoRes.json();
-
-  const dataRes = await fetch('data/provinces.json');
-  const data    = await dataRes.json();
-
-  geo.features.forEach(f => {
-    const id       = f.properties.CPRO;
-    const areaData = data[id];
-    if (areaData) {
-      f.properties.net_income_pc = areaData.net_income_pc?.['2023'] ?? null;
-    }
-  });
-
-  map.addSource('provinces', {
-    type: 'geojson',
-    data: geo,
-  });
-
-  map.addLayer({
-    id:     'provinces-fill',
-    type:   'fill',
-    source: 'provinces',
-    paint:  {
-      'fill-color':   '#7b3db0',
-      'fill-opacity': 0.6,
-    },
-  });
-
-  map.addLayer({
-    id:     'provinces-line',
-    type:   'line',
-    source: 'provinces',
-    paint:  {
-      'line-color': '#0d1117',
-      'line-width': 1.5,
-    },
-  });
-
-  console.log('Provinces loaded ✓', geo.features.length, 'features');
+async function loadGeo(levelId) {
+  if (geoCache[levelId]) return geoCache[levelId];
+  const res  = await fetch(`geo/${levelId}.geojson`);
+  const json = await res.json();
+  geoCache[levelId] = json;
+  window._geoCache  = geoCache;
+  return json;
 }
+
+async function loadData(levelId) {
+  if (dataCache[levelId]) return dataCache[levelId];
+  const res  = await fetch(`data/${levelId}.json`);
+  const json = await res.json();
+  dataCache[levelId] = json;
+  return json;
+}
+
+async function init() {
+  const map = initMap();
+
+  map.on('load', async () => {
+    // load provinces first
+    const geo  = await loadGeo('provinces');
+    const data = await loadData('provinces');
+    addLevel(map, 'provinces', geo, data, activeVar);
+    setActiveLevel(map, 'provinces');
+
+    // pre-load municipalities in background
+    loadGeo('municipalities').then(async geo => {
+      const data = await loadData('municipalities');
+      addLevel(map, 'municipalities', geo, data, activeVar);
+    });
+
+    // zoom switching
+        map.on('zoom', async () => {
+          const zoom   = map.getZoom();
+          const active = LEVELS.find(l => zoom >= l.minZoom && zoom < l.maxZoom);
+          if (!active) return;
+          if (!dataCache[active.id]) {
+            const geo  = await loadGeo(active.id);
+            const data = await loadData(active.id);
+            addLevel(map, active.id, geo, data, activeVar);
+          }
+          setActiveLevel(map, active.id);
+          activeLevel = active.id;
+        });
+
+    // build sidebar
+    buildSidebar(map);
+  });
+}
+
+function buildSidebar(map) {
+  const container = document.getElementById('var-list');
+  if (!container) return;
+
+  VARIABLES.forEach(v => {
+    const btn = document.createElement('button');
+    btn.className   = 'var-btn';
+    btn.textContent = v.label_en;
+    btn.dataset.id  = v.id;
+
+    if (v.id === activeVar) btn.classList.add('active');
+
+    btn.addEventListener('click', async () => {
+      activeVar = v.id;
+      document.querySelectorAll('.var-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // recolor all loaded levels
+      Object.keys(dataCache).forEach(levelId => {
+        recolorLevel(map, levelId, dataCache[levelId], activeVar);
+      });
+    });
+
+    container.appendChild(btn);
+  });
+}
+
+init();
