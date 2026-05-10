@@ -1,0 +1,69 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --sidebar-width: 320px;
+  --bg:            #0d1117;
+  --surface:       #161b22;
+  --border:        #30363d;
+  --text:          #e6edf3;
+  --text-muted:    #8b949e;
+  --accent:        #7b3db0;
+}
+
+body {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ── Sidebar ────────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+#sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+#sidebar-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+#sidebar-header p {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Map ────────────────────────────────────────────────── */
+#map {
+  flex: 1;
+  position: relative;
+}
