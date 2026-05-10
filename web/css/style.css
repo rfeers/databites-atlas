@@ -11,7 +11,7 @@
   --border:        #30363d;
   --text:          #e6edf3;
   --text-muted:    #8b949e;
-  --accent:        #7b3db0;
+  --accent:        #2f9e44;
 }
 
 body {
@@ -66,4 +66,49 @@ body {
 #map {
   flex: 1;
   position: relative;
+}
+
+#sidebar-vars {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+#var-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.var-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.var-btn:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.var-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
 }
