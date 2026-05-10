@@ -1,0 +1,22 @@
+region:
+  id: catalonia
+  display_name: Catalonia
+  province_codes: ["08", "17", "25", "43"]
+  province_names:
+    "08": Barcelona
+    "17": Girona
+    "25": Lleida
+    "43": Tarragona
+
+geometry:
+  url: "https://www.ine.es/prodyser/cartografia/seccionado_2023.zip"
+  year: 2023
+
+simplification:
+  tracts: 0.0001
+  municipalities: 0.0002
+  provinces: 0.0003
+
+output:
+  geo_dir: "../web/geo"
+  data_dir: "../web/data"
