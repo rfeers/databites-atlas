@@ -1,7 +1,7 @@
 // main.js - entry point, wires everything together
 
 import { LEVELS, VARIABLES, DEFAULT_VARIABLE } from './config.js';
-import { initMap, addLevel, recolorLevel, setActiveLevel } from './map.js';
+import { initMap, addLevel, recolorLevel, setActiveLevel, setupHover } from './map.js';
 
 // app state
 let activeVar   = DEFAULT_VARIABLE;
@@ -43,14 +43,19 @@ async function init() {
     });
 
     // zoom switching
+        // zoom switching
+        const loading = new Set();
         map.on('zoom', async () => {
           const zoom   = map.getZoom();
           const active = LEVELS.find(l => zoom >= l.minZoom && zoom < l.maxZoom);
           if (!active) return;
+          if (loading.has(active.id)) return;
           if (!dataCache[active.id]) {
+            loading.add(active.id);
             const geo  = await loadGeo(active.id);
             const data = await loadData(active.id);
             addLevel(map, active.id, geo, data, activeVar);
+            loading.delete(active.id);
           }
           setActiveLevel(map, active.id);
           activeLevel = active.id;
@@ -58,6 +63,7 @@ async function init() {
 
     // build sidebar
     buildSidebar(map);
+    setupHover(map, () => activeLevel, () => activeVar);
   });
 }
 

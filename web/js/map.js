@@ -24,9 +24,12 @@ export function addLevel(map, levelId, geo, data, varId) {
 
   const colored = joinAndColor(geo, data, level.idCol, varId, varCfg, DEFAULT_YEAR);
 
+  if (map.getSource(levelId)) return;
+
   map.addSource(levelId, {
-    type: 'geojson',
-    data: colored,
+    type:      'geojson',
+    data:      colored,
+    promoteId: level.idCol,
   });
 
   map.addLayer({
@@ -46,6 +49,22 @@ export function addLevel(map, levelId, geo, data, varId) {
     paint:  {
       'line-color': '#0d1117',
       'line-width': levelId === 'tracts' ? 0.3 : 1,
+    },
+  });
+
+  map.addLayer({
+    id:     `${levelId}-highlight`,
+    type:   'line',
+    source: levelId,
+    paint:  {
+      'line-color':   '#ffffff',
+      'line-width':   2.5,
+      'line-opacity': [
+        'case',
+        ['boolean', ['feature-state', 'hovered'], false],
+        1,
+        0
+      ],
     },
   });
 
@@ -107,15 +126,89 @@ export function setActiveLevel(map, levelId) {
   });
 }
 
-export function setupZoomLevels(map, dataCache, varId, onLevelChange) {
+export function setupZoomLevels(map, onZoom) {
   map.on('zoom', () => {
-    const zoom   = map.getZoom();
+    const zoom = map.getZoom();
     const active = LEVELS.find(l => zoom >= l.minZoom && zoom < l.maxZoom);
     if (!active) return;
-    if (!loadedLevels.has(active.id)) {
-      addLevel(map, active.id, window._geoCache[active.id], dataCache, varId);
-    }
-    setActiveLevel(map, active.id);
-    onLevelChange(active.id);
+    onZoom(active.id);
+  });
+}
+
+export function setupHover(map, getActiveLevel, getActiveVar) {
+  const tooltip = document.getElementById('tooltip');
+  let hoveredId  = null;
+  let hoveredLevel = null;
+
+  LEVELS.forEach(level => {
+
+    map.on('mouseenter', `${level.id}-fill`, () => {
+      map.getCanvas().style.cursor = 'pointer';
+    });
+
+    map.on('mouseleave', `${level.id}-fill`, () => {
+      map.getCanvas().style.cursor = '';
+      tooltip.style.display = 'none';
+      if (hoveredId !== null && hoveredLevel) {
+        map.setFeatureState(
+          { source: hoveredLevel, id: hoveredId },
+          { hovered: false }
+        );
+      }
+      hoveredId    = null;
+      hoveredLevel = null;
+    });
+
+    map.on('mousemove', `${level.id}-fill`, (e) => {
+      if (!e.features?.length) return;
+
+      const feature = e.features[0];
+      const props   = feature.properties;
+      const varId   = getActiveVar();
+      const varCfg  = VARIABLE_MAP[varId];
+      const value   = props._value;
+
+      // update highlight
+      if (hoveredId !== null && hoveredLevel) {
+        map.setFeatureState(
+          { source: hoveredLevel, id: hoveredId },
+          { hovered: false }
+        );
+      }
+      hoveredId    = feature.id;
+      hoveredLevel = level.id;
+      if (hoveredId !== null) {
+        map.setFeatureState(
+          { source: level.id, id: hoveredId },
+          { hovered: true }
+        );
+      }
+
+      // build name
+      let name = '';
+      if (level.id === 'provinces') {
+        name = `${props.province_name || props.CPRO}`;
+      } else if (level.id === 'municipalities') {
+        name = `${props.NMUN || ''} <span class="tooltip-id">(${props.CUMUN || ''})</span>`;
+      } else {
+        name = `${props.NMUN || ''} <span class="tooltip-id">(${props.CUSEC || ''})</span>`;
+      }
+
+      // format value
+      const formatted = value != null
+        ? varCfg.unit === 'EUR'
+          ? `€${Math.round(value).toLocaleString('es-ES')}`
+          : value.toFixed(varCfg.decimals)
+        : 'No data';
+
+      tooltip.style.display = 'block';
+      tooltip.style.left    = `${e.point.x + 14}px`;
+      tooltip.style.top     = `${e.point.y - 44}px`;
+      tooltip.innerHTML     = `
+        <div class="tooltip-name">${name}</div>
+        <div class="tooltip-value">${formatted}</div>
+        <div class="tooltip-label">${varCfg.label_en}</div>
+      `;
+    });
   });
 }

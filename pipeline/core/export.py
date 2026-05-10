@@ -10,8 +10,8 @@ def export_geo(levels: dict, output_dir: str) -> None:
     os.makedirs(output_dir, exist_ok=True)
 
     id_cols = {
-        "tracts":         ["CUSEC", "CUMUN", "CPRO"],
-        "municipalities": ["CUMUN", "CPRO"],
+        "tracts":         ["CUSEC", "CUMUN", "CPRO", "NMUN"],
+        "municipalities": ["CUMUN", "CPRO", "NMUN"],
         "provinces":      ["CPRO", "province_name"],
     }
 

@@ -77,9 +77,11 @@ def make_levels(gdf: gpd.GeoDataFrame, cfg: dict) -> dict:
 
     # Municipalities — dissolve tracts by CUMUN
     municipalities = (
-        gdf.dissolve(by="CUMUN")
-        .reset_index()[["CUMUN", "CPRO", "geometry"]]
+        gdf.dissolve(by="CUMUN", aggfunc="first").reset_index()
     )
+
+    municipalities = municipalities[["CUMUN", "CPRO", "NMUN", "geometry"]]
+
     municipalities["geometry"] = municipalities["geometry"].simplify(
         sim["municipalities"], preserve_topology=True
     )
