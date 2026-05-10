@@ -1,7 +1,7 @@
 // main.js - entry point, wires everything together
 
-import { LEVELS, VARIABLES, DEFAULT_VARIABLE } from './config.js';
-import { initMap, addLevel, recolorLevel, setActiveLevel, setupHover } from './map.js';
+import { LEVELS, VARIABLES, DEFAULT_VARIABLE, VARIABLE_MAP, DEFAULT_YEAR } from './config.js';
+import { initMap, addLevel, recolorLevel, setActiveLevel, setupHover, setupClick } from './map.js';
 
 // app state
 let activeVar   = DEFAULT_VARIABLE;
@@ -64,6 +64,7 @@ async function init() {
     // build sidebar
     buildSidebar(map);
     setupHover(map, () => activeLevel, () => activeVar);
+    setupClick(map, () => activeLevel, () => dataCache, () => VARIABLE_MAP, () => DEFAULT_YEAR);
   });
 }
 

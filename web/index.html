@@ -27,10 +27,18 @@
       <div class="sidebar-section-title">Variable</div>
       <div id="var-list"></div>
     </div>
-    <!-- detail panel goes here in Milestone 7 -->
   </div>
 
-  <div id="map"></div>
+  <div id="map">
+  <div id="tooltip"></div>
+  <div id="detail-panel" style="display:none">
+      <div id="detail-header">
+        <div id="detail-title"></div>
+        <button id="detail-close">✕</button>
+      </div>
+      <div id="detail-rows"></div>
+    </div>
+  </div>
 
   <script type="module" src="js/main.js"></script>
 

@@ -212,3 +212,95 @@ export function setupHover(map, getActiveLevel, getActiveVar) {
     });
   });
 }
+
+export function setupClick(map, getActiveLevel, getAllData, getVarMap, getYear) {
+  const panel     = document.getElementById('detail-panel');
+  const titleEl   = document.getElementById('detail-title');
+  const rowsEl    = document.getElementById('detail-rows');
+  const closeBtn  = document.getElementById('detail-close');
+
+  function closePanel() {
+    panel.style.display = 'none';
+  }
+
+  closeBtn.addEventListener('click', closePanel);
+
+  LEVELS.forEach(level => {
+    map.on('click', `${level.id}-fill`, (e) => {
+      if (!e.features?.length) return;
+
+      const props    = e.features[0].properties;
+      const allData  = getAllData();
+      const varMap   = getVarMap();
+      const year     = getYear();
+      const levelId  = level.id;
+      const idCol    = level.idCol;
+      const areaId   = props[idCol];
+      const areaData = allData[levelId]?.[areaId];
+
+      // build title
+      let nameLine = '';
+      let codeLine = '';
+      if (levelId === 'provinces') {
+        nameLine = props.province_name || props.CPRO;
+        codeLine = `Province ${props.CPRO}`;
+      } else if (levelId === 'municipalities') {
+        nameLine = props.NMUN || props.CUMUN;
+        codeLine = `Municipality ${props.CUMUN}`;
+      } else {
+        nameLine = props.NMUN || '';
+        codeLine = `Census tract ${props.CUSEC}`;
+      }
+
+      titleEl.innerHTML = `${nameLine}<span>${codeLine}</span>`;
+
+      // compute Catalonia-wide min/max for each var (for the bar)
+      const levelLookup = allData[levelId] || {};
+
+      rowsEl.innerHTML = '';
+      Object.entries(varMap).forEach(([varId, varCfg]) => {
+        const val = areaData?.[varId]?.[year];
+
+        // get all values for this level + var to compute position
+        const allVals = Object.values(levelLookup)
+          .map(d => d?.[varId]?.[year])
+          .filter(v => v != null);
+        const min = Math.min(...allVals);
+        const max = Math.max(...allVals);
+        const pct = allVals.length && val != null
+          ? Math.round(((val - min) / (max - min)) * 100)
+          : null;
+
+        const formatted = val != null
+          ? varCfg.unit === 'EUR'
+            ? `€${Math.round(val).toLocaleString('es-ES')}`
+            : val.toFixed(varCfg.decimals)
+          : 'No data';
+
+        const row = document.createElement('div');
+        row.className = 'detail-row';
+        row.innerHTML = `
+          <div class="detail-row-header">
+            <div class="detail-row-label">${varCfg.label_en}</div>
+            <div class="detail-row-value">${formatted}</div>
+          </div>
+          ${pct != null ? `
+          <div class="detail-bar-track">
+            <div class="detail-bar-fill" style="width:${pct}%"></div>
+          </div>
+          <div class="detail-row-pct">Top ${100 - pct}% in Catalonia</div>
+          ` : ''}
+        `;
+        rowsEl.appendChild(row);
+      });
+
+      panel.style.display = 'block';
+      e.stopPropagation();
+    });
+  });
+
+  // click on map background closes panel
+  map.on('click', (e) => {
+    if (!e.defaultPrevented) closePanel();
+  });
+}
