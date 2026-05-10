@@ -403,7 +403,8 @@ export function raiseOverlays(map) {
   const overlays = [
     'roads-major-casing', 'roads-major',
     'roads-secondary-casing', 'roads-secondary',
-    'buildings-overlay', 'buildings-outline'
+    'buildings-overlay', 'buildings-outline',
+    'provinces-highlight', 'municipalities-highlight', 'tracts-highlight',
   ];
   overlays.forEach(id => {
     if (map.getLayer(id)) map.moveLayer(id);
