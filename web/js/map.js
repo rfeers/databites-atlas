@@ -8,8 +8,9 @@ const loadedLevels = new Set();
 export function initMap() {
   const map = new maplibregl.Map({
     container: 'map',
-    style:     'https://tiles.stadiamaps.com/styles/alidade_smooth_dark.json',
-//  style: 'https://tiles.stadiamaps.com/styles/alidade_smooth.json', light version
+    style: `https://api.protomaps.com/styles/v4/black/en.json?key=94c1fe33310f3dfe`,
+//  style: `https://api.protomaps.com/styles/v4/grayscale/en.json?key=94c1fe33310f3dfe`,
+//  all styles: light, white, dark, black, grayscale
     center:    [1.7, 41.7],
     zoom:      7,
     minZoom:   5,
@@ -38,19 +39,23 @@ export function addLevel(map, levelId, geo, data, varId) {
     source: levelId,
     paint:  {
       'fill-color':   ['coalesce', ['get', '_color'], '#1a1a2e'],
-      'fill-opacity': 0.55,
+      'fill-opacity': 0.65,
+      'fill-outline-color': 'rgba(0,0,0,0)',
     },
   });
 
-  map.addLayer({
-    id:     `${levelId}-line`,
-    type:   'line',
-    source: levelId,
-    paint:  {
-      'line-color': '#0d1117',
-      'line-width': levelId === 'tracts' ? 0.3 : 1,
-    },
-  });
+  if (levelId === 'tracts') {
+    map.addLayer({
+      id:     `${levelId}-line`,
+      type:   'line',
+      source: levelId,
+      paint:  {
+        'line-color':   '#ffffff',
+        'line-width':   0.25,
+        'line-opacity': 0.25,
+      },
+    });
+  }
 
   map.addLayer({
     id:     `${levelId}-highlight`,
@@ -122,7 +127,9 @@ export function setActiveLevel(map, levelId) {
     if (!loadedLevels.has(level.id)) return;
     const visibility = level.id === levelId ? 'visible' : 'none';
     map.setLayoutProperty(`${level.id}-fill`, 'visibility', visibility);
-    map.setLayoutProperty(`${level.id}-line`, 'visibility', visibility);
+    if (map.getLayer(`${level.id}-line`)) {
+      map.setLayoutProperty(`${level.id}-line`, 'visibility', visibility);
+    }
   });
 }
 
@@ -137,7 +144,7 @@ export function setupZoomLevels(map, onZoom) {
 
 export function setupHover(map, getActiveLevel, getActiveVar) {
   const tooltip = document.getElementById('tooltip');
-  let hoveredId  = null;
+  let hoveredId    = null;
   let hoveredLevel = null;
 
   LEVELS.forEach(level => {
@@ -214,10 +221,10 @@ export function setupHover(map, getActiveLevel, getActiveVar) {
 }
 
 export function setupClick(map, getActiveLevel, getAllData, getVarMap, getYear) {
-  const panel     = document.getElementById('detail-panel');
-  const titleEl   = document.getElementById('detail-title');
-  const rowsEl    = document.getElementById('detail-rows');
-  const closeBtn  = document.getElementById('detail-close');
+  const panel    = document.getElementById('detail-panel');
+  const titleEl  = document.getElementById('detail-title');
+  const rowsEl   = document.getElementById('detail-rows');
+  const closeBtn = document.getElementById('detail-close');
 
   function closePanel() {
     panel.style.display = 'none';
@@ -254,14 +261,12 @@ export function setupClick(map, getActiveLevel, getAllData, getVarMap, getYear) 
 
       titleEl.innerHTML = `${nameLine}<span>${codeLine}</span>`;
 
-      // compute Catalonia-wide min/max for each var (for the bar)
       const levelLookup = allData[levelId] || {};
 
       rowsEl.innerHTML = '';
       Object.entries(varMap).forEach(([varId, varCfg]) => {
         const val = areaData?.[varId]?.[year];
 
-        // get all values for this level + var to compute position
         const allVals = Object.values(levelLookup)
           .map(d => d?.[varId]?.[year])
           .filter(v => v != null);
@@ -299,8 +304,108 @@ export function setupClick(map, getActiveLevel, getAllData, getVarMap, getYear) 
     });
   });
 
-  // click on map background closes panel
   map.on('click', (e) => {
     if (!e.defaultPrevented) closePanel();
+  });
+}
+
+export function addRoadsOverlay(map, apiKey) {
+  map.addSource('protomaps-roads', {
+    type: 'vector',
+    url: `https://api.protomaps.com/tiles/v4.json?key=${apiKey}`,
+  });
+
+// major roads -- casing (dark border)
+  map.addLayer({
+    id: 'roads-major-casing',
+    type: 'line',
+    source: 'protomaps-roads',
+    'source-layer': 'roads',
+    filter: ['in', ['get', 'kind'], ['literal', ['major_road', 'highway']]],
+    paint: {
+      'line-color': '#e8e0d0',
+      'line-width': ['interpolate', ['linear'], ['zoom'], 6, 2.5, 12, 6, 16, 12],
+      'line-opacity': 0.5,
+    },
+  });
+
+  // major roads -- fill (light top)
+  map.addLayer({
+    id: 'roads-major',
+    type: 'line',
+    source: 'protomaps-roads',
+    'source-layer': 'roads',
+    filter: ['in', ['get', 'kind'], ['literal', ['major_road', 'highway']]],
+    paint: {
+      'line-color': '#111111',
+      'line-width': ['interpolate', ['linear'], ['zoom'], 6, 1, 12, 3, 16, 7],
+      'line-opacity': 0.5,
+    },
+  });
+
+  // secondary roads -- casing
+  map.addLayer({
+    id: 'roads-secondary-casing',
+    type: 'line',
+    source: 'protomaps-roads',
+    'source-layer': 'roads',
+    filter: ['in', ['get', 'kind'], ['literal', ['medium_road', 'minor_road']]],
+    paint: {
+      'line-color': '#111111',
+      'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.5, 12, 3, 16, 7],
+      'line-opacity': 0.5,
+    },
+  });
+
+  // secondary roads -- fill
+  map.addLayer({
+    id: 'roads-secondary',
+    type: 'line',
+    source: 'protomaps-roads',
+    'source-layer': 'roads',
+    filter: ['in', ['get', 'kind'], ['literal', ['medium_road', 'minor_road']]],
+    paint: {
+      'line-color': '#d4ccc0',
+      'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 12, 1.5, 16, 4],
+      'line-opacity': 0.5,
+    },
+  });
+
+  // buildings fill
+  map.addLayer({
+    id: 'buildings-overlay',
+    type: 'fill',
+    source: 'protomaps-roads',
+    'source-layer': 'buildings',
+    minzoom: 14,
+    paint: {
+      'fill-color': '#ffffff',
+      'fill-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.0, 15, 0.08, 16, 0.15],
+    },
+  });
+
+  // building outlines
+  map.addLayer({
+    id: 'buildings-outline',
+    type: 'line',
+    source: 'protomaps-roads',
+    'source-layer': 'buildings',
+    minzoom: 14,
+    paint: {
+      'line-color': '#ffffff',
+      'line-width': 0.5,
+      'line-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.0, 15, 0.5, 16, 0.9],
+    },
+  });
+}
+
+export function raiseOverlays(map) {
+  const overlays = [
+    'roads-major-casing', 'roads-major',
+    'roads-secondary-casing', 'roads-secondary',
+    'buildings-overlay', 'buildings-outline'
+  ];
+  overlays.forEach(id => {
+    if (map.getLayer(id)) map.moveLayer(id);
   });
 }

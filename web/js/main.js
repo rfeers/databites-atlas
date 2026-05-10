@@ -1,7 +1,7 @@
 // main.js - entry point, wires everything together
 
 import { LEVELS, VARIABLES, DEFAULT_VARIABLE, VARIABLE_MAP, DEFAULT_YEAR } from './config.js';
-import { initMap, addLevel, recolorLevel, setActiveLevel, setupHover, setupClick } from './map.js';
+import { initMap, addLevel, recolorLevel, setActiveLevel, setupHover, setupClick, addRoadsOverlay, raiseOverlays } from './map.js';
 
 // app state
 let activeVar   = DEFAULT_VARIABLE;
@@ -28,6 +28,7 @@ async function loadData(levelId) {
 
 async function init() {
   const map = initMap();
+  window._map = map;
 
   map.on('load', async () => {
     // load provinces first
@@ -35,31 +36,33 @@ async function init() {
     const data = await loadData('provinces');
     addLevel(map, 'provinces', geo, data, activeVar);
     setActiveLevel(map, 'provinces');
+    addRoadsOverlay(map, '94c1fe33310f3dfe');
 
     // pre-load municipalities in background
     loadGeo('municipalities').then(async geo => {
       const data = await loadData('municipalities');
       addLevel(map, 'municipalities', geo, data, activeVar);
+      raiseOverlays(map);
     });
 
     // zoom switching
-        // zoom switching
-        const loading = new Set();
-        map.on('zoom', async () => {
-          const zoom   = map.getZoom();
-          const active = LEVELS.find(l => zoom >= l.minZoom && zoom < l.maxZoom);
-          if (!active) return;
-          if (loading.has(active.id)) return;
-          if (!dataCache[active.id]) {
-            loading.add(active.id);
-            const geo  = await loadGeo(active.id);
-            const data = await loadData(active.id);
-            addLevel(map, active.id, geo, data, activeVar);
-            loading.delete(active.id);
-          }
-          setActiveLevel(map, active.id);
-          activeLevel = active.id;
-        });
+    const loading = new Set();
+    map.on('zoom', async () => {
+      const zoom   = map.getZoom();
+      const active = LEVELS.find(l => zoom >= l.minZoom && zoom < l.maxZoom);
+      if (!active) return;
+      if (loading.has(active.id)) return;
+      if (!dataCache[active.id]) {
+        loading.add(active.id);
+        const geo  = await loadGeo(active.id);
+        const data = await loadData(active.id);
+        addLevel(map, active.id, geo, data, activeVar);
+        raiseOverlays(map);
+        loading.delete(active.id);
+      }
+      setActiveLevel(map, active.id);
+      activeLevel = active.id;
+    });
 
     // build sidebar
     buildSidebar(map);
