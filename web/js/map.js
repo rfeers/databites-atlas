@@ -19,11 +19,11 @@ export function initMap() {
   return map;
 }
 
-export function addLevel(map, levelId, geo, data, varId) {
+export function addLevel(map, levelId, geo, data, varId, year = DEFAULT_YEAR, filterSteps = []) {
   const level  = LEVELS.find(l => l.id === levelId);
   const varCfg = VARIABLE_MAP[varId];
 
-  const colored = joinAndColor(geo, data, level.idCol, varId, varCfg, DEFAULT_YEAR);
+  const colored = joinAndColor(geo, data, level.idCol, varId, varCfg, year, filterSteps);
 
   if (map.getSource(levelId)) return;
 
@@ -38,8 +38,8 @@ export function addLevel(map, levelId, geo, data, varId) {
     type:   'fill',
     source: levelId,
     paint:  {
-      'fill-color':   ['coalesce', ['get', '_color'], '#1a1a2e'],
-      'fill-opacity': 0.65,
+      'fill-color':         ['coalesce', ['get', '_color'], '#1a1a2e'],
+      'fill-opacity':       ['coalesce', ['get', '_opacity'], 0.65],
       'fill-outline-color': 'rgba(0,0,0,0)',
     },
   });
@@ -76,7 +76,7 @@ export function addLevel(map, levelId, geo, data, varId) {
   loadedLevels.add(levelId);
 }
 
-export function recolorLevel(map, levelId, data, varId) {
+export function recolorLevel(map, levelId, data, varId, year = DEFAULT_YEAR, filterSteps = []) {
   if (!loadedLevels.has(levelId)) return;
 
   const level  = LEVELS.find(l => l.id === levelId);
@@ -85,11 +85,11 @@ export function recolorLevel(map, levelId, data, varId) {
   if (!source) return;
 
   const geo     = source._data;
-  const colored = joinAndColor(geo, data, level.idCol, varId, varCfg, DEFAULT_YEAR);
+  const colored = joinAndColor(geo, data, level.idCol, varId, varCfg, year, filterSteps);
   source.setData(colored);
 }
 
-function joinAndColor(geo, data, idCol, varId, varCfg, year) {
+function joinAndColor(geo, data, idCol, varId, varCfg, year, filterSteps = []) {
   const values = [];
   geo.features.forEach(f => {
     const id    = f.properties[idCol];
@@ -109,12 +109,24 @@ function joinAndColor(geo, data, idCol, varId, varCfg, year) {
     const id    = f.properties[idCol];
     const entry = data[id];
     const val   = entry?.[varId]?.[year];
+
+    let opacity = 0.65;
+    if (filterSteps.length > 0) {
+      if (val != null) {
+        const inFilter = filterSteps.some(s => val >= s.min && val <= s.max);
+        opacity = inFilter ? 0.65 : 0.12;
+      } else {
+        opacity = 0.12;
+      }
+    }
+
     return {
       ...f,
       properties: {
         ...f.properties,
-        _value: val ?? null,
-        _color: val != null ? colorFn(val).hex() : '#1a1a2e',
+        _value:   val ?? null,
+        _color:   val != null ? colorFn(val).hex() : '#1a1a2e',
+        _opacity: opacity,
       },
     };
   });
@@ -175,7 +187,6 @@ export function setupHover(map, getActiveLevel, getActiveVar) {
       const varCfg  = VARIABLE_MAP[varId];
       const value   = props._value;
 
-      // update highlight
       if (hoveredId !== null && hoveredLevel) {
         map.setFeatureState(
           { source: hoveredLevel, id: hoveredId },
@@ -191,7 +202,6 @@ export function setupHover(map, getActiveLevel, getActiveVar) {
         );
       }
 
-      // build name
       let name = '';
       if (level.id === 'provinces') {
         name = `${props.province_name || props.CPRO}`;
@@ -201,7 +211,6 @@ export function setupHover(map, getActiveLevel, getActiveVar) {
         name = `${props.NMUN || ''} <span class="tooltip-id">(${props.CUSEC || ''})</span>`;
       }
 
-      // format value
       const formatted = value != null
         ? varCfg.unit === 'EUR'
           ? `€${Math.round(value).toLocaleString('es-ES')}`
@@ -245,7 +254,6 @@ export function setupClick(map, getActiveLevel, getAllData, getVarMap, getYear) 
       const areaId   = props[idCol];
       const areaData = allData[levelId]?.[areaId];
 
-      // build title
       let nameLine = '';
       let codeLine = '';
       if (levelId === 'provinces') {
@@ -315,7 +323,6 @@ export function addRoadsOverlay(map, apiKey) {
     url: `https://api.protomaps.com/tiles/v4.json?key=${apiKey}`,
   });
 
-// major roads -- casing (dark border)
   map.addLayer({
     id: 'roads-major-casing',
     type: 'line',
@@ -329,7 +336,6 @@ export function addRoadsOverlay(map, apiKey) {
     },
   });
 
-  // major roads -- fill (light top)
   map.addLayer({
     id: 'roads-major',
     type: 'line',
@@ -343,7 +349,6 @@ export function addRoadsOverlay(map, apiKey) {
     },
   });
 
-  // secondary roads -- casing
   map.addLayer({
     id: 'roads-secondary-casing',
     type: 'line',
@@ -357,7 +362,6 @@ export function addRoadsOverlay(map, apiKey) {
     },
   });
 
-  // secondary roads -- fill
   map.addLayer({
     id: 'roads-secondary',
     type: 'line',
@@ -371,7 +375,6 @@ export function addRoadsOverlay(map, apiKey) {
     },
   });
 
-  // buildings fill
   map.addLayer({
     id: 'buildings-overlay',
     type: 'fill',
@@ -384,7 +387,6 @@ export function addRoadsOverlay(map, apiKey) {
     },
   });
 
-  // building outlines
   map.addLayer({
     id: 'buildings-outline',
     type: 'line',

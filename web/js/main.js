@@ -1,13 +1,16 @@
 // main.js - entry point, wires everything together
 
-import { LEVELS, VARIABLES, DEFAULT_VARIABLE, VARIABLE_MAP, DEFAULT_YEAR } from './config.js';
+import { LEVELS, VARIABLES, DEFAULT_VARIABLE, VARIABLE_MAP, DEFAULT_YEAR, COLOR_SCALES } from './config.js';
 import { initMap, addLevel, recolorLevel, setActiveLevel, setupHover, setupClick, addRoadsOverlay, raiseOverlays } from './map.js';
 
 // app state
-let activeVar   = DEFAULT_VARIABLE;
-let activeLevel = 'provinces';
-let geoCache    = {};
-let dataCache   = {};
+let activeVar     = DEFAULT_VARIABLE;
+let activeLevel   = 'provinces';
+let activeYear    = DEFAULT_YEAR;
+let activeFilters = new Set(); // indices of active legend steps
+let legendSteps   = [];
+let geoCache      = {};
+let dataCache     = {};
 
 const CITIES = [
   { name: 'Barcelona', center: [2.1734, 41.3851], zoom: 12 },
@@ -44,34 +47,101 @@ async function detectYearRange() {
   return { min: years[0], max: years[years.length - 1] };
 }
 
+// ── Filter helpers ───────────────────────────────────────────
+function getActiveFilterSteps() {
+  if (activeFilters.size === 0) return [];
+  return legendSteps.filter(s => activeFilters.has(s.index));
+}
+
+function recolorAll(map) {
+  const filterSteps = getActiveFilterSteps();
+  Object.keys(dataCache).forEach(levelId => {
+    recolorLevel(map, levelId, dataCache[levelId], activeVar, activeYear, filterSteps);
+  });
+}
+
+// ── Legend ───────────────────────────────────────────────────
+function computeLegendSteps(data, varId, year, varCfg, n = 5) {
+  const values = Object.values(data)
+    .map(d => d?.[varId]?.[year])
+    .filter(v => v != null)
+    .sort((a, b) => a - b);
+
+  if (values.length === 0) return [];
+
+  const scale   = COLOR_SCALES[varCfg.colorScale];
+  const colorFn = chroma.scale(scale).domain([0, n - 1]);
+  const steps   = [];
+
+  for (let i = 0; i < n; i++) {
+    const loIdx = Math.floor((i / n) * values.length);
+    const hiIdx = Math.min(Math.floor(((i + 1) / n) * values.length) - 1, values.length - 1);
+    steps.push({
+      min:   values[loIdx],
+      max:   values[hiIdx],
+      color: colorFn(i).hex(),
+      index: i,
+    });
+  }
+  return steps;
+}
+
+function formatLegendVal(val, varCfg) {
+  if (varCfg.unit === 'EUR') return `€${Math.round(val).toLocaleString('es-ES')}`;
+  return val.toFixed(varCfg.decimals);
+}
+
+function updateLegend(map) {
+  const container = document.getElementById('legend');
+  if (!container) return;
+
+  const munData = dataCache['municipalities'];
+  if (!munData) { container.style.display = 'none'; return; }
+
+  const varCfg = VARIABLE_MAP[activeVar];
+  legendSteps  = computeLegendSteps(munData, activeVar, activeYear, varCfg);
+
+  if (legendSteps.length === 0) { container.style.display = 'none'; return; }
+
+  container.style.display = 'flex';
+  container.innerHTML = `
+    <div class="legend-label">${varCfg.label_en} · ${activeYear}</div>
+    <div class="legend-steps">
+      ${legendSteps.map(s => `
+        <button class="legend-step ${activeFilters.has(s.index) ? 'active' : ''}" data-index="${s.index}">
+          <div class="legend-swatch" style="background:${s.color}"></div>
+          <div class="legend-range">${formatLegendVal(s.min, varCfg)}<br>${formatLegendVal(s.max, varCfg)}</div>
+        </button>
+      `).join('')}
+    </div>
+    ${activeFilters.size > 0 ? '<button class="legend-reset">Reset filter</button>' : ''}
+  `;
+
+  container.querySelectorAll('.legend-step').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.index);
+      if (activeFilters.has(idx)) {
+        activeFilters.delete(idx);
+      } else {
+        activeFilters.add(idx);
+      }
+      updateLegend(map);
+      recolorAll(map);
+    });
+  });
+
+  const resetBtn = container.querySelector('.legend-reset');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      activeFilters.clear();
+      updateLegend(map);
+      recolorAll(map);
+    });
+  }
+}
+
 // ── Minimap ────────────────────────────────────────────────
 const CATALONIA_BOUNDS = [[0.15, 40.52], [3.34, 42.86]];
-
-function getViewportGeoJSON(map) {
-  const b  = map.getBounds();
-  const ne = b.getNorthEast();
-  const sw = b.getSouthWest();
-
-  // clamp to Catalonia bounds so the box never exceeds the minimap
-  const minLng = Math.max(sw.lng, CATALONIA_BOUNDS[0][0]);
-  const minLat = Math.max(sw.lat, CATALONIA_BOUNDS[0][1]);
-  const maxLng = Math.min(ne.lng, CATALONIA_BOUNDS[1][0]);
-  const maxLat = Math.min(ne.lat, CATALONIA_BOUNDS[1][1]);
-
-  return {
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[
-        [minLng, minLat],
-        [maxLng, minLat],
-        [maxLng, maxLat],
-        [minLng, maxLat],
-        [minLng, minLat],
-      ]],
-    },
-  };
-}
 
 function initMinimap(mainMap) {
   const CAT_BOUNDS = [[0.15, 40.52], [3.34, 42.86]];
@@ -114,24 +184,12 @@ function initMinimap(mainMap) {
     const geo = await res.json();
 
     minimap.addSource('catalonia', { type: 'geojson', data: geo });
-    minimap.addLayer({
-      id: 'catalonia-fill', type: 'fill', source: 'catalonia',
-      paint: { 'fill-color': '#1c2a1e', 'fill-opacity': 1 },
-    });
-    minimap.addLayer({
-      id: 'catalonia-border', type: 'line', source: 'catalonia',
-      paint: { 'line-color': '#4a7c59', 'line-width': 1 },
-    });
+    minimap.addLayer({ id: 'catalonia-fill', type: 'fill', source: 'catalonia', paint: { 'fill-color': '#1c2a1e', 'fill-opacity': 1 } });
+    minimap.addLayer({ id: 'catalonia-border', type: 'line', source: 'catalonia', paint: { 'line-color': '#4a7c59', 'line-width': 1 } });
 
     minimap.addSource('viewport', { type: 'geojson', data: getClampedViewport() });
-    minimap.addLayer({
-      id: 'viewport-fill', type: 'fill', source: 'viewport',
-      paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.1 },
-    });
-    minimap.addLayer({
-      id: 'viewport-border', type: 'line', source: 'viewport',
-      paint: { 'line-color': '#ffffff', 'line-width': 1.5 },
-    });
+    minimap.addLayer({ id: 'viewport-fill', type: 'fill', source: 'viewport', paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.1 } });
+    minimap.addLayer({ id: 'viewport-border', type: 'line', source: 'viewport', paint: { 'line-color': '#ffffff', 'line-width': 1.5 } });
 
     const update = () => {
       const src = minimap.getSource('viewport');
@@ -163,6 +221,68 @@ function buildJumpTo(map) {
   });
 }
 
+// ── Level switcher ───────────────────────────────────────────
+function buildLevelSwitcher(map) {
+  const container = document.getElementById('level-list');
+  if (!container) return;
+
+  LEVELS.forEach(level => {
+    const btn = document.createElement('button');
+    btn.className   = 'level-btn';
+    btn.textContent = level.label_en;
+    btn.dataset.id  = level.id;
+    if (level.id === activeLevel) btn.classList.add('active');
+
+    btn.addEventListener('click', async () => {
+      if (!dataCache[level.id]) {
+        const geo  = await loadGeo(level.id);
+        const data = await loadData(level.id);
+        addLevel(map, level.id, geo, data, activeVar, activeYear, getActiveFilterSteps());
+        raiseOverlays(map);
+      }
+      activeLevel = level.id;
+      setActiveLevel(map, level.id);
+      document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const targetZoom = level.id === 'provinces' ? 7 : level.id === 'municipalities' ? 9 : 12;
+      if (Math.abs(map.getZoom() - targetZoom) > 1) {
+        map.flyTo({ zoom: targetZoom, duration: 800 });
+      }
+    });
+
+    container.appendChild(btn);
+  });
+}
+
+// ── Year slider ──────────────────────────────────────────────
+async function buildYearSlider(map) {
+  const container = document.getElementById('year-slider-wrap');
+  if (!container) return;
+
+  const { min, max } = await detectYearRange();
+
+  container.innerHTML = `
+    <div class="year-slider-header">
+      <span class="year-slider-title">Year</span>
+      <span id="year-label">${activeYear}</span>
+    </div>
+    <input type="range" id="year-slider" min="${min}" max="${max}" value="${activeYear}" step="1" />
+    <div class="year-range-labels">
+      <span>${min}</span>
+      <span>${max}</span>
+    </div>
+  `;
+
+  document.getElementById('year-slider').addEventListener('input', (e) => {
+    activeYear = Number(e.target.value);
+    document.getElementById('year-label').textContent = activeYear;
+    updateLegend(map);
+    recolorAll(map);
+    updateFeatured(map);
+  });
+}
+
 // ── Featured top/bottom ──────────────────────────────────────
 function updateFeatured(map) {
   const container = document.getElementById('featured-list');
@@ -178,15 +298,13 @@ function updateFeatured(map) {
 
   const varCfg = VARIABLE_MAP[activeVar];
 
-  // name lookup from geo
   const nameLookup = {};
   munGeo.features.forEach(f => {
     nameLookup[f.properties.CUMUN] = f.properties.NMUN || f.properties.CUMUN;
   });
 
-  // collect + sort values
   const entries = Object.entries(munData)
-    .map(([id, d]) => ({ id, val: d?.[activeVar]?.[DEFAULT_YEAR] }))
+    .map(([id, d]) => ({ id, val: d?.[activeVar]?.[activeYear] }))
     .filter(e => e.val != null)
     .sort((a, b) => b.val - a.val);
 
@@ -237,6 +355,7 @@ function updateFeatured(map) {
 async function buildSidebar(map) {
   const container = document.getElementById('var-list');
   if (!container) return;
+  container.innerHTML = '';
 
   const { min, max } = await detectYearRange();
   const yearLabel = `${min}–${max}`;
@@ -256,50 +375,10 @@ async function buildSidebar(map) {
       activeVar = v.id;
       document.querySelectorAll('.var-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      Object.keys(dataCache).forEach(levelId => {
-        recolorLevel(map, levelId, dataCache[levelId], activeVar);
-      });
+      activeFilters.clear();
+      recolorAll(map);
+      updateLegend(map);
       updateFeatured(map);
-    });
-
-    container.appendChild(btn);
-  });
-}
-
-function buildLevelSwitcher(map) {
-  const container = document.getElementById('level-list');
-  if (!container) return;
-
-  LEVELS.forEach(level => {
-    const btn = document.createElement('button');
-    btn.className   = 'level-btn';
-    btn.textContent = level.label_en;
-    btn.dataset.id  = level.id;
-    if (level.id === activeLevel) btn.classList.add('active');
-
-    btn.addEventListener('click', async () => {
-      // load level if not yet loaded
-      if (!dataCache[level.id]) {
-        const geo  = await loadGeo(level.id);
-        const data = await loadData(level.id);
-        addLevel(map, level.id, geo, data, activeVar);
-        raiseOverlays(map);
-      }
-      activeLevel = level.id;
-      setActiveLevel(map, level.id);
-
-      // update active button
-      document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      // fly to appropriate zoom
-      const currentZoom = map.getZoom();
-      const targetZoom = level.id === 'provinces' ? 7
-                       : level.id === 'municipalities' ? 9
-                       : 12;
-      if (Math.abs(currentZoom - targetZoom) > 1) {
-        map.flyTo({ zoom: targetZoom, duration: 800 });
-      }
     });
 
     container.appendChild(btn);
@@ -310,25 +389,23 @@ function buildLevelSwitcher(map) {
 async function init() {
   const map = initMap();
   await buildSidebar(map);
-  buildLevelSwitcher(map);
   window._map = map;
 
   map.on('load', async () => {
     const geo  = await loadGeo('provinces');
     const data = await loadData('provinces');
-    addLevel(map, 'provinces', geo, data, activeVar);
+    addLevel(map, 'provinces', geo, data, activeVar, activeYear, []);
     setActiveLevel(map, 'provinces');
     addRoadsOverlay(map, '94c1fe33310f3dfe');
 
-    // pre-load municipalities in background
     loadGeo('municipalities').then(async geo => {
       const data = await loadData('municipalities');
-      addLevel(map, 'municipalities', geo, data, activeVar);
+      addLevel(map, 'municipalities', geo, data, activeVar, activeYear, []);
       raiseOverlays(map);
       updateFeatured(map);
+      updateLegend(map);
     });
 
-    // zoom switching
     const loading = new Set();
     map.on('zoom', async () => {
       const zoom   = map.getZoom();
@@ -339,24 +416,24 @@ async function init() {
         loading.add(active.id);
         const geo  = await loadGeo(active.id);
         const data = await loadData(active.id);
-        addLevel(map, active.id, geo, data, activeVar);
+        addLevel(map, active.id, geo, data, activeVar, activeYear, getActiveFilterSteps());
         raiseOverlays(map);
         loading.delete(active.id);
       }
       setActiveLevel(map, active.id);
       activeLevel = active.id;
-      // sync level buttons
       document.querySelectorAll('.level-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.id === active.id);
       });
     });
 
     buildJumpTo(map);
+    buildLevelSwitcher(map);
+    await buildYearSlider(map);
     setupHover(map, () => activeLevel, () => activeVar);
-    setupClick(map, () => activeLevel, () => dataCache, () => VARIABLE_MAP, () => DEFAULT_YEAR);
+    setupClick(map, () => activeLevel, () => dataCache, () => VARIABLE_MAP, () => activeYear);
 
     initMinimap(map);
-    updateFeatured(map);
   });
 }
 

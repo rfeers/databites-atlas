@@ -23,7 +23,7 @@
       <p>Socio-economic indicators at census tract level</p>
     </div>
 
-  <!-- minimap + jump to side by side -->
+    <!-- minimap + jump to side by side -->
     <div id="sidebar-overview">
       <div id="minimap-wrap">
         <div class="sidebar-section-title">View</div>
@@ -40,12 +40,16 @@
       <div id="level-list"></div>
     </div>
 
-    <!-- variable picker -->
-    <div id="sidebar-vars">
-      <div class="sidebar-section-title">Variable</div>
-      <div id="var-list"></div>
+    <!-- variable picker + year slider as one unit -->
+    <div id="sidebar-vars-wrap">
+      <div id="sidebar-vars">
+        <div class="sidebar-section-title">Variable</div>
+        <div id="var-list"></div>
+      </div>
+      <div id="sidebar-year">
+        <div id="year-slider-wrap"></div>
+      </div>
     </div>
-
 
     <!-- featured top/bottom -->
     <div id="sidebar-featured">
@@ -56,11 +60,11 @@
     <div id="sidebar-footer">
       © 2026 <a href="https://databites.tech" target="_blank">databites.tech</a> w/ ❤️ by Josep Ferrer
     </div>
-
   </div>
 
   <div id="map">
     <div id="tooltip"></div>
+    <div id="legend" style="display:none"></div>
     <div id="detail-panel" style="display:none">
       <div id="detail-header">
         <div id="detail-title"></div>
