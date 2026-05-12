@@ -23,15 +23,36 @@
       <p>Socio-economic indicators at census tract level</p>
     </div>
 
+  <!-- minimap + jump to side by side -->
+    <div id="sidebar-overview">
+      <div id="minimap-wrap">
+        <div class="sidebar-section-title">View</div>
+        <div id="minimap"></div>
+      </div>
+      <div id="jumpto-wrap">
+        <div class="sidebar-section-title">Jump to</div>
+        <div id="jumpto-list"></div>
+      </div>
+    </div>
+
+    <!-- variable picker -->
     <div id="sidebar-vars">
       <div class="sidebar-section-title">Variable</div>
       <div id="var-list"></div>
     </div>
+
+
+    <!-- featured top/bottom -->
+    <div id="sidebar-featured">
+      <div class="sidebar-section-title">Featured</div>
+      <div id="featured-list"></div>
+    </div>
+
   </div>
 
   <div id="map">
-  <div id="tooltip"></div>
-  <div id="detail-panel" style="display:none">
+    <div id="tooltip"></div>
+    <div id="detail-panel" style="display:none">
       <div id="detail-header">
         <div id="detail-title"></div>
         <button id="detail-close">✕</button>
