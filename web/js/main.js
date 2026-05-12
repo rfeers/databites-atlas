@@ -35,6 +35,15 @@ async function loadData(levelId) {
   return json;
 }
 
+async function detectYearRange() {
+  const data = await loadData('municipalities');
+  const firstEntry = Object.values(data)[0];
+  const years = Object.keys(firstEntry?.['net_income_pc'] || {})
+    .map(Number)
+    .sort((a, b) => a - b);
+  return { min: years[0], max: years[years.length - 1] };
+}
+
 // ── Minimap ────────────────────────────────────────────────
 const CATALONIA_BOUNDS = [[0.15, 40.52], [3.34, 42.86]];
 
@@ -225,15 +234,21 @@ function updateFeatured(map) {
 }
 
 // ── Sidebar variable buttons ─────────────────────────────────
-function buildSidebar(map) {
+async function buildSidebar(map) {
   const container = document.getElementById('var-list');
   if (!container) return;
 
+  const { min, max } = await detectYearRange();
+  const yearLabel = `${min}–${max}`;
+
   VARIABLES.forEach(v => {
     const btn = document.createElement('button');
-    btn.className   = 'var-btn';
-    btn.textContent = v.label_en;
-    btn.dataset.id  = v.id;
+    btn.className  = 'var-btn';
+    btn.dataset.id = v.id;
+    btn.innerHTML  = `
+      <span class="var-btn-label">${v.label_en}</span>
+      <span class="var-btn-years">${yearLabel}</span>
+    `;
 
     if (v.id === activeVar) btn.classList.add('active');
 
@@ -241,12 +256,50 @@ function buildSidebar(map) {
       activeVar = v.id;
       document.querySelectorAll('.var-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-
       Object.keys(dataCache).forEach(levelId => {
         recolorLevel(map, levelId, dataCache[levelId], activeVar);
       });
-
       updateFeatured(map);
+    });
+
+    container.appendChild(btn);
+  });
+}
+
+function buildLevelSwitcher(map) {
+  const container = document.getElementById('level-list');
+  if (!container) return;
+
+  LEVELS.forEach(level => {
+    const btn = document.createElement('button');
+    btn.className   = 'level-btn';
+    btn.textContent = level.label_en;
+    btn.dataset.id  = level.id;
+    if (level.id === activeLevel) btn.classList.add('active');
+
+    btn.addEventListener('click', async () => {
+      // load level if not yet loaded
+      if (!dataCache[level.id]) {
+        const geo  = await loadGeo(level.id);
+        const data = await loadData(level.id);
+        addLevel(map, level.id, geo, data, activeVar);
+        raiseOverlays(map);
+      }
+      activeLevel = level.id;
+      setActiveLevel(map, level.id);
+
+      // update active button
+      document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // fly to appropriate zoom
+      const currentZoom = map.getZoom();
+      const targetZoom = level.id === 'provinces' ? 7
+                       : level.id === 'municipalities' ? 9
+                       : 12;
+      if (Math.abs(currentZoom - targetZoom) > 1) {
+        map.flyTo({ zoom: targetZoom, duration: 800 });
+      }
     });
 
     container.appendChild(btn);
@@ -256,6 +309,8 @@ function buildSidebar(map) {
 // ── Init ─────────────────────────────────────────────────────
 async function init() {
   const map = initMap();
+  await buildSidebar(map);
+  buildLevelSwitcher(map);
   window._map = map;
 
   map.on('load', async () => {
@@ -290,9 +345,12 @@ async function init() {
       }
       setActiveLevel(map, active.id);
       activeLevel = active.id;
+      // sync level buttons
+      document.querySelectorAll('.level-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.id === active.id);
+      });
     });
 
-    buildSidebar(map);
     buildJumpTo(map);
     setupHover(map, () => activeLevel, () => activeVar);
     setupClick(map, () => activeLevel, () => dataCache, () => VARIABLE_MAP, () => DEFAULT_YEAR);
