@@ -21,7 +21,7 @@ def download(url: str, label: str, force: bool = False) -> bytes:
             return f.read()
 
     print(f"  [download] {label} ...")
-    response = requests.get(url, timeout=120)
+    response = requests.get(url, timeout=600)
     response.raise_for_status()
 
     with open(cache_file, "wb") as f:

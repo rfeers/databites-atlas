@@ -212,9 +212,9 @@ export function setupHover(map, getActiveLevel, getActiveVar) {
       }
 
       const formatted = value != null
-        ? varCfg.unit === 'EUR'
-          ? `€${Math.round(value).toLocaleString('es-ES')}`
-          : value.toFixed(varCfg.decimals)
+        ? varCfg.unit === 'EUR' ? `€${Math.round(value).toLocaleString('es-ES')}`
+        : varCfg.unit === 'PCT' ? `${value.toFixed(varCfg.decimals)}%`
+        : value.toFixed(varCfg.decimals)
         : 'No data';
 
       tooltip.style.display = 'block';
@@ -285,9 +285,9 @@ export function setupClick(map, getActiveLevel, getAllData, getVarMap, getYear) 
           : null;
 
         const formatted = val != null
-          ? varCfg.unit === 'EUR'
-            ? `€${Math.round(val).toLocaleString('es-ES')}`
-            : val.toFixed(varCfg.decimals)
+          ? varCfg.unit === 'EUR' ? `€${Math.round(val).toLocaleString('es-ES')}`
+          : varCfg.unit === 'PCT' ? `${val.toFixed(varCfg.decimals)}%`
+          : val.toFixed(varCfg.decimals)
           : 'No data';
 
         const row = document.createElement('div');

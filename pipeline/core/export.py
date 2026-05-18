@@ -23,6 +23,13 @@ def export_geo(levels: dict, output_dir: str) -> None:
         size_kb = os.path.getsize(path) / 1000
         print(f"  [exported] {level}.geojson — {len(out):,} features · {size_kb:.0f} KB")
 
+    # catalonia outline — single polygon for minimap
+    catalonia = levels["provinces"].dissolve().reset_index()[["geometry"]]
+    catalonia["geometry"] = catalonia["geometry"].simplify(0.005, preserve_topology=True)
+    path = os.path.join(output_dir, "catalonia.geojson")
+    catalonia.to_file(path, driver="GeoJSON")
+    print(f"  [exported] catalonia.geojson — outline only")
+
 def export_data(data: dict, output_dir: str) -> None:
     """
     Export variable data as JSON lookup tables.
