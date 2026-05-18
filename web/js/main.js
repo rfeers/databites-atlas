@@ -88,6 +88,7 @@ function computeLegendSteps(data, varId, year, varCfg, n = 5) {
 
 function formatLegendVal(val, varCfg) {
   if (varCfg.unit === 'EUR') return `€${Math.round(val).toLocaleString('es-ES')}`;
+  if (varCfg.unit === 'PCT') return `${val.toFixed(varCfg.decimals)}%`;
   return val.toFixed(varCfg.decimals);
 }
 
@@ -312,16 +313,16 @@ function updateFeatured(map) {
   const bot3 = entries.slice(-3).reverse();
 
   function formatVal(val) {
-    return varCfg.unit === 'EUR'
-      ? `€${Math.round(val).toLocaleString('es-ES')}`
+    return varCfg.unit === 'EUR' ? `€${Math.round(val).toLocaleString('es-ES')}`
+      : varCfg.unit === 'PCT' ? `${val.toFixed(varCfg.decimals)}%`
       : val.toFixed(varCfg.decimals);
   }
 
-  function makeItem(entry, rankLabel, rankClass) {
+  function makeItem(entry, rankNum) {
     const div = document.createElement('div');
     div.className = 'featured-item';
     div.innerHTML = `
-      <div class="featured-rank ${rankClass}">${rankLabel}</div>
+      <div class="featured-rank">${rankNum}</div>
       <div class="featured-name">${nameLookup[entry.id] || entry.id}</div>
       <div class="featured-value">${formatVal(entry.val)}</div>
     `;
@@ -342,47 +343,109 @@ function updateFeatured(map) {
   }
 
   container.innerHTML = '';
-  top3.forEach((e, i) => container.appendChild(makeItem(e, `TOP ${i + 1}`, 'top')));
 
-  const divider = document.createElement('div');
-  divider.className = 'featured-divider';
-  container.appendChild(divider);
+  const topCol = document.createElement('div');
+  const topHeader = document.createElement('div');
+  topHeader.className = 'featured-col-header top';
+  topHeader.textContent = 'Top 3';
+  topCol.appendChild(topHeader);
+  top3.forEach((e, i) => topCol.appendChild(makeItem(e, i + 1)));
 
-  bot3.forEach((e, i) => container.appendChild(makeItem(e, `BOT ${i + 1}`, 'bot')));
+  const botCol = document.createElement('div');
+  const botHeader = document.createElement('div');
+  botHeader.className = 'featured-col-header bot';
+  botHeader.textContent = 'Bottom 3';
+  botCol.appendChild(botHeader);
+  bot3.forEach((e, i) => botCol.appendChild(makeItem(e, i + 1)));
+
+  container.appendChild(topCol);
+  container.appendChild(botCol);
 }
 
 // ── Sidebar variable buttons ─────────────────────────────────
+const CATEGORY_META = {
+  Income:     { label: 'Income',     icon: 'assets/icons/euro.png' },
+  Employment: { label: 'Employment', icon: 'assets/icons/cogwheel.png' },
+  Education:  { label: 'Education',  icon: 'assets/icons/mortarboard.png' },
+};
+
 async function buildSidebar(map) {
   const container = document.getElementById('var-list');
   if (!container) return;
   container.innerHTML = '';
 
   const { min, max } = await detectYearRange();
-  const yearLabel = `${min}–${max}`;
+  const yearLabel = `${min}\u2013${max}`;
 
+  const grouped = {};
   VARIABLES.forEach(v => {
-    const btn = document.createElement('button');
-    btn.className  = 'var-btn';
-    btn.dataset.id = v.id;
-    btn.innerHTML  = `
-      <span class="var-btn-label">${v.label_en}</span>
-      <span class="var-btn-years">${yearLabel}</span>
-    `;
-
-    if (v.id === activeVar) btn.classList.add('active');
-
-    btn.addEventListener('click', async () => {
-      activeVar = v.id;
-      document.querySelectorAll('.var-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeFilters.clear();
-      recolorAll(map);
-      updateLegend(map);
-      updateFeatured(map);
-    });
-
-    container.appendChild(btn);
+    const cat = v.category || 'Other';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(v);
   });
+
+  Object.entries(grouped)
+    .sort(([, aVars], [, bVars]) => {
+      const aActive = aVars.some(v => v.id === activeVar) ? -1 : 1;
+      const bActive = bVars.some(v => v.id === activeVar) ? -1 : 1;
+      return aActive - bActive;
+    })
+    .forEach(([cat, vars]) => {
+      const meta = CATEGORY_META[cat] || { label: cat, icon: null };
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'var-category-wrap';
+
+      const header = document.createElement('button');
+      header.className = 'var-category-header';
+      header.innerHTML = `
+        ${meta.icon ? `<img src="${meta.icon}" class="var-category-icon" alt="${meta.label}" />` : ''}
+        <span class="var-category-label">${meta.label}</span>
+        <span class="var-category-chevron">&#9658;</span>
+      `;
+
+      const body = document.createElement('div');
+      body.className = 'var-category-body';
+      body.style.display = 'none';
+
+      header.addEventListener('click', () => {
+        const isOpen = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : 'flex';
+        header.classList.toggle('open', !isOpen);
+      });
+
+      if (vars.some(v => v.id === activeVar)) {
+        body.style.display = 'flex';
+        header.classList.add('open');
+        header.classList.add('has-active');
+      }
+
+      vars.forEach(v => {
+        const btn = document.createElement('button');
+        btn.className  = 'var-btn';
+        btn.dataset.id = v.id;
+        btn.innerHTML  = `
+          <span class="var-btn-label">${v.label_en}</span>
+          <span class="var-btn-years">${yearLabel}</span>
+        `;
+        if (v.id === activeVar) btn.classList.add('active');
+
+        btn.addEventListener('click', async () => {
+          activeVar = v.id;
+          activeFilters.clear();
+          await buildSidebar(map);
+          recolorAll(map);
+          updateLegend(map);
+          updateFeatured(map);
+        });
+
+        body.appendChild(btn);
+      });
+
+      wrapper.appendChild(header);
+      wrapper.appendChild(body);
+      container.appendChild(wrapper);
+    });
 }
 
 // ── Init ─────────────────────────────────────────────────────

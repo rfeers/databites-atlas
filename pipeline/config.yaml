@@ -22,12 +22,10 @@ output:
   data_dir: "../web/data"
 
 # ── Data sources ───────────────────────────────────────────────────────────
-# Each source is downloaded ONCE regardless of how many variables it contains.
-# To add a new variable from an existing source: add it under that source's variables.
-# To add a new source: add a new block here with its own variables list.
 
 sources:
 
+  # ── Income (ADRH — all Spain in one file) ─────────────────────────────────
   ine_30824:
     url: "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/30824.csv"
     type: ine_atlas_renta
@@ -51,20 +49,11 @@ sources:
         decimals: 0
         multiplier: 1000
 
-      - id: mean_income_cu
-        indicator: "Media de la renta por unidad de consumo"
-        label_es: Media de la renta por unidad de consumo
-        label_ca: Mitjana de la renda per unitat de consum
-        label_en: Mean income per consumption unit
-        unit: "€"
-        decimals: 0
-        multiplier: 1000
-
       - id: median_income_cu
         indicator: "Mediana de la renta por unidad de consumo"
         label_es: Mediana de la renta por unidad de consumo
         label_ca: Mediana de la renda per unitat de consum
-        label_en: Median income per consumption unit
+        label_en: Median income per equivalent adult
         unit: "€"
         decimals: 0
         multiplier: 1000
@@ -86,17 +75,197 @@ sources:
         unit: "€"
         decimals: 0
         multiplier: 1000
-        
-  # ── Future sources (examples of how to add them) ──────────────────────────
-  # ine_30825:
-  #   url: "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/30825.csv"
-  #   type: ine_atlas_renta
-  #   label: "INE — Gini and inequality indicators"
-  #   variables:
-  #     - id: gini_index
-  #       indicator: "Índice de Gini"
-  #       label_es: Índice de Gini
-  #       label_ca: Índex de Gini
-  #       label_en: Gini index
-  #       unit: ""
-  #       decimals: 3
+
+  # ── Employment — activity (Censo Anual, one file per province) ─────────────
+  ine_censo_empleo:
+    urls:
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/66672.csv"  # 08 Barcelona
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/66720.csv"  # 17 Girona
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/66748.csv"  # 25 Lleida
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/66812.csv"  # 43 Tarragona
+    type: ine_censo_anual
+    label: "INE — Censo Anual de Población (relación con la actividad)"
+    variables:
+      - id: employment_rate
+        ratio_numerator: "Ocupado/a"
+        ratio_denominator: "Total"
+        label_es: Tasa de empleo
+        label_ca: "Taxa d'ocupació"
+        label_en: Employment rate
+        unit: "%"
+        decimals: 1
+
+      - id: unemployment_rate
+        ratio_numerator: "Parado/a"
+        ratio_denominator: "Total"
+        label_es: Tasa de paro
+        label_ca: "Taxa d'atur"
+        label_en: Unemployment rate
+        unit: "%"
+        decimals: 1
+
+      - id: pension_recipients_pct
+        ratio_numerator: "Perceptor/a pensión de incapacidad, jubilación, prejubilación"
+        ratio_denominator: "Total"
+        label_es: Perceptores de pensión (incapacidad, jubilación)
+        label_ca: Perceptors de pensió (incapacitat, jubilació)
+        label_en: Pension / disability recipients
+        unit: "%"
+        decimals: 1
+
+  # ── Education (Censo Anual, one file per province) ─────────────────────────
+  ine_censo_educacion:
+    urls:
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/66670.csv"  # 08 Barcelona
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/66718.csv"  # 17 Girona
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/66746.csv"  # 25 Lleida
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/66810.csv"  # 43 Tarragona
+    type: ine_censo_anual
+    label: "INE — Censo Anual de Población (educación)"
+    variables:
+      - id: edu_primary_pct
+        ratio_numerator: "Educación primaria e inferior"
+        ratio_denominator: "Total"
+        label_es: Educación primaria o inferior
+        label_ca: Educació primària o inferior
+        label_en: Primary education or below
+        unit: "%"
+        decimals: 1
+
+      - id: edu_lower_secondary_pct
+        ratio_numerator: "Primera etapa de Educación Secundaria y similar"
+        ratio_denominator: "Total"
+        label_es: Primera etapa de Educación Secundaria
+        label_ca: Primera etapa d'Educació Secundària
+        label_en: Lower secondary education
+        unit: "%"
+        decimals: 1
+
+      - id: edu_upper_secondary_pct
+        ratio_numerator: "Segunda etapa de Educación Secundaria y Educación Postsecundaria no Superior"
+        ratio_denominator: "Total"
+        label_es: Segunda etapa de Educación Secundaria
+        label_ca: Segona etapa d'Educació Secundària
+        label_en: Upper secondary education
+        unit: "%"
+        decimals: 1
+
+      - id: edu_higher_pct
+        ratio_numerator: "Educación superior"
+        ratio_denominator: "Total"
+        label_es: Educación superior
+        label_ca: Educació superior
+        label_en: Higher education
+        unit: "%"
+        decimals: 1
+
+  # ── Occupation (Censo Anual, one file per province) ────────────────────────
+  ine_censo_ocupacion:
+    urls:
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70034.csv"  # 08 Barcelona
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70061.csv"  # 17 Girona
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70085.csv"  # 25 Lleida
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70139.csv"  # 43 Tarragona
+    type: ine_censo_anual
+    label: "INE — Censo Anual de Población (ocupación)"
+    variables:
+      - id: occ_high_skill_pct
+        ratio_numerator: "Directores/gerentes y profesionales/técnicos de nivel medio o alto"
+        ratio_denominator: "Total"
+        label_es: Ocupaciones de alta cualificación
+        label_ca: Ocupacions d'alta qualificació
+        label_en: High-skill occupations
+        unit: "%"
+        decimals: 1
+
+      - id: occ_low_skill_pct
+        ratio_numerator: "Trabajadores cualificados y oficiales/operarios de nivel bajo"
+        ratio_denominator: "Total"
+        label_es: Trabajadores cualificados de nivel bajo
+        label_ca: Treballadors qualificats de nivell baix
+        label_en: Low-skill qualified workers
+        unit: "%"
+        decimals: 1
+
+      - id: occ_elementary_pct
+        ratio_numerator: "Ocupaciones elementales"
+        ratio_denominator: "Total"
+        label_es: Ocupaciones elementales
+        label_ca: Ocupacions elementals
+        label_en: Elementary occupations
+        unit: "%"
+        decimals: 1
+
+  # ── Economic activity sector (Censo Anual, one file per province) ──────────
+  ine_censo_actividad:
+    urls:
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70035.csv"  # 08 Barcelona
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70062.csv"  # 17 Girona
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70086.csv"  # 25 Lleida
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70140.csv"  # 43 Tarragona
+    type: ine_censo_anual
+    label: "INE — Censo Anual de Población (rama de actividad)"
+    variables:
+      - id: sector_agriculture_pct
+        ratio_numerator: "Agricultura, ganadería y pesca"
+        ratio_denominator: "Total CNAE"
+        label_es: Agricultura, ganadería y pesca
+        label_ca: Agricultura, ramaderia i pesca
+        label_en: Agriculture employment
+        unit: "%"
+        decimals: 1
+
+      - id: sector_industry_pct
+        ratio_numerator: "Industria"
+        ratio_denominator: "Total CNAE"
+        label_es: Industria
+        label_ca: Indústria
+        label_en: Industry employment
+        unit: "%"
+        decimals: 1
+
+      - id: sector_construction_pct
+        ratio_numerator: "Construcción"
+        ratio_denominator: "Total CNAE"
+        label_es: Construcción
+        label_ca: Construcció
+        label_en: Construction employment
+        unit: "%"
+        decimals: 1
+
+      - id: sector_services_pct
+        ratio_numerator: "Servicios"
+        ratio_denominator: "Total CNAE"
+        label_es: Servicios
+        label_ca: Serveis
+        label_en: Services employment
+        unit: "%"
+        decimals: 1
+
+  # ── Professional status (Censo Anual, one file per province) ───────────────
+  ine_censo_situacion_prof:
+    urls:
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70036.csv"  # 08 Barcelona
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70063.csv"  # 17 Girona
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70087.csv"  # 25 Lleida
+      - "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/70141.csv"  # 43 Tarragona
+    type: ine_censo_anual
+    label: "INE — Censo Anual de Población (situación profesional)"
+    variables:
+      - id: self_employed_pct
+        ratio_numerator: "Trabajador por cuenta propia"
+        ratio_denominator: "Total"
+        label_es: Trabajadores por cuenta propia
+        label_ca: Treballadors per compte propi
+        label_en: Self-employed
+        unit: "%"
+        decimals: 1
+
+      - id: employed_pct
+        ratio_numerator: "Trabajador por cuenta ajena y otra situación"
+        ratio_denominator: "Total"
+        label_es: Trabajadores por cuenta ajena
+        label_ca: Treballadors per compte aliè
+        label_en: Employed (salaried)
+        unit: "%"
+        decimals: 1
